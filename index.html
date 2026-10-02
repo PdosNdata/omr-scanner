@@ -53,9 +53,11 @@ th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
 td.r,th.r{text-align:right}
 #printArea{display:none}
 @media print{
-  @page{size:A5;margin:0}
   body>*:not(#printArea){display:none!important}
   #printArea{display:block;padding:0}
+  #printArea .pg{display:flex;width:296mm;height:208mm}
+  #printArea .pg>div+div{border-left:.2mm dashed #aaa}
+  html,body{margin:0;padding:0}
   body{background:#fff}
 }
 </style>
@@ -108,7 +110,9 @@ td.r,th.r{text-align:right}
 <section id="t-print">
   <div class="card">
     <h2>กระดาษคำตอบ</h2>
-    <p class="hint" style="margin:0 0 10px">พิมพ์แล้วให้ผู้สอบระบายวงกลมให้ทึบด้วยปากกาหรือดินสอสีเข้ม ห้ามตัดหรือบังสี่เหลี่ยมดำที่มุมทั้ง 4 ด้าน · ขนาดกระดาษ A5 (ครึ่ง A4) ตอนพิมพ์เลือก A5 และ "100% / Actual size" หรือจะพิมพ์ลงกระดาษ A4 ก็ได้ (ได้แผ่นเดียวต่อหน้า ตัดครึ่งเอา)</p>
+    <p class="hint" style="margin:0 0 10px">พิมพ์แล้วให้ผู้สอบระบายวงกลมให้ทึบด้วยปากกาหรือดินสอสีเข้ม ห้ามตัดหรือบังสี่เหลี่ยมดำที่มุมทั้ง 4 ด้าน · ในหน้าต่างพิมพ์ให้ตั้ง "หน้าต่อแผ่น = 1" และสเกลเป็นค่าเริ่มต้น/100%</p>
+    <div class="row" style="margin-bottom:10px"><label>รูปแบบการพิมพ์
+      <select id="printMode"><option value="2up">A4 แนวนอน — 2 ใบต่อแผ่น (ตัดครึ่งเป็น A5)</option><option value="a5">A5 — 1 ใบต่อแผ่น</option></select></label></div>
     <button class="btn" id="printBtn">🖨️ พิมพ์กระดาษคำตอบ</button>
   </div>
   <div class="sheetprev" id="sheetPrev"></div>
@@ -460,7 +464,13 @@ $('quickBtn').onclick=()=>{
 };
 
 /* ====================== พิมพ์ ====================== */
-$('printBtn').onclick=()=>{$('printArea').innerHTML=sheetSVG({mm:true});window.print()};
+$('printBtn').onclick=()=>{
+  const two=$('printMode').value==='2up',svg=sheetSVG({mm:true});
+  let st=$('pageStyle');if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st)}
+  st.textContent=`@page{size:${two?'A4 landscape':'A5'};margin:0}`;
+  $('printArea').innerHTML=two?`<div class="pg"><div>${svg}</div><div>${svg}</div></div>`:svg;
+  window.print();
+};
 
 /* ====================== ประวัติ ====================== */
 function renderHist(){
