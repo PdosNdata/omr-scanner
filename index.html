@@ -53,9 +53,9 @@ th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
 td.r,th.r{text-align:right}
 #printArea{display:none}
 @media print{
-  @page{size:A4;margin:0}
+  @page{size:A5;margin:0}
   body>*:not(#printArea){display:none!important}
-  #printArea{display:block;padding:15mm 0 0 8mm}
+  #printArea{display:block;padding:0}
   body{background:#fff}
 }
 </style>
@@ -108,7 +108,7 @@ td.r,th.r{text-align:right}
 <section id="t-print">
   <div class="card">
     <h2>กระดาษคำตอบ</h2>
-    <p class="hint" style="margin:0 0 10px">พิมพ์แล้วให้ผู้สอบระบายวงกลมให้ทึบด้วยปากกาหรือดินสอสีเข้ม ห้ามตัดหรือบังสี่เหลี่ยมดำที่มุมทั้ง 4 ด้าน · ตอนพิมพ์เลือกขนาด A4 และ "100% / Actual size"</p>
+    <p class="hint" style="margin:0 0 10px">พิมพ์แล้วให้ผู้สอบระบายวงกลมให้ทึบด้วยปากกาหรือดินสอสีเข้ม ห้ามตัดหรือบังสี่เหลี่ยมดำที่มุมทั้ง 4 ด้าน · ขนาดกระดาษ A5 (ครึ่ง A4) ตอนพิมพ์เลือก A5 และ "100% / Actual size" หรือจะพิมพ์ลงกระดาษ A4 ก็ได้ (ได้แผ่นเดียวต่อหน้า ตัดครึ่งเอา)</p>
     <button class="btn" id="printBtn">🖨️ พิมพ์กระดาษคำตอบ</button>
   </div>
   <div class="sheetprev" id="sheetPrev"></div>
@@ -195,10 +195,10 @@ const $=id=>document.getElementById(id);
 const lab=()=>LABELS[state.labels].slice(0,state.k);
 
 /* ====================== เลย์เอาต์กระดาษ (หน่วย มม. ใช้ร่วมทั้งพิมพ์และสแกน) ====================== */
-const SHEET={w:180,h:240,mk:10,markerC:[[5,5],[175,5],[175,235],[5,235]],dot:[30,5]};
+const SHEET={w:134,h:194,mk:8,markerC:[[4,4],[130,4],[130,190],[4,190]],dot:[24,4],margin:7};
 function layout(n,k){
-  const R=25,colW=45,y0=38,pitch=7.4,r=2.5,sp=6.6,bx=13;
-  const C=Math.ceil(n/R),x0=(SHEET.w-C*colW)/2,bubbles=[];
+  const R=25,y0=32,pitch=6,r=2.2,sp=5.2,bx=9;
+  const C=Math.ceil(n/R),colW=Math.min(40,SHEET.w/C),x0=(SHEET.w-C*colW)/2,bubbles=[];
   for(let q=0;q<n;q++){
     const col=Math.floor(q/R),row=q%R,cy=y0+(row+.5)*pitch,list=[];
     for(let c=0;c<k;c++)list.push({x:x0+col*colW+bx+c*sp,y:cy});
@@ -206,22 +206,23 @@ function layout(n,k){
   }
   return {bubbles,r,C,x0,colW,y0,R,bx,sp};
 }
+// กระดาษขนาด A5 (ครึ่ง A4) 148x208 มม. = กรอบ 134x194 + ขอบขาวรอบละ 7 มม.
 function sheetSVG({mm=false,marks=[]}={}){
-  const L=layout(state.n,state.k),lb=lab();
-  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 -7 194 254" ${mm?'width="194mm" height="254mm"':'style="width:100%;height:auto;display:block"'} font-family="Tahoma,Sarabun,sans-serif">`;
-  s+='<rect x="-7" y="-7" width="194" height="254" fill="#fff"/>';
-  [[0,0],[170,0],[170,230],[0,230]].forEach(([x,y])=>s+=`<rect x="${x}" y="${y}" width="10" height="10" fill="#000"/>`);
-  s+=`<circle cx="${SHEET.dot[0]}" cy="${SHEET.dot[1]}" r="2.5" fill="#000"/>`;
-  s+=`<text x="90" y="15" font-size="5" text-anchor="middle" font-weight="bold" textLength="${Math.min(120,(12+state.name.length)*3.2)}" lengthAdjust="spacing">กระดาษคำตอบ ${esc(state.name)}</text>`;
-  s+='<text x="14" y="25" font-size="3.6">ชื่อ-สกุล</text><line x1="30" y1="25.5" x2="120" y2="25.5" stroke="#000" stroke-width=".25"/>';
-  s+='<text x="126" y="25" font-size="3.6">เลขที่</text><line x1="138" y1="25.5" x2="166" y2="25.5" stroke="#000" stroke-width=".25"/>';
+  const L=layout(state.n,state.k),lb=lab(),{w,h,mk,margin:m}=SHEET,W=w+2*m,H=h+2*m;
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-m} ${-m} ${W} ${H}" ${mm?`width="${W}mm" height="${H}mm"`:'style="width:100%;height:auto;display:block"'} font-family="Tahoma,Sarabun,sans-serif">`;
+  s+=`<rect x="${-m}" y="${-m}" width="${W}" height="${H}" fill="#fff"/>`;
+  [[0,0],[w-mk,0],[w-mk,h-mk],[0,h-mk]].forEach(([x,y])=>s+=`<rect x="${x}" y="${y}" width="${mk}" height="${mk}" fill="#000"/>`);
+  s+=`<circle cx="${SHEET.dot[0]}" cy="${SHEET.dot[1]}" r="2" fill="#000"/>`;
+  s+=`<text x="${w/2}" y="14" font-size="4.2" text-anchor="middle" font-weight="bold" textLength="${Math.min(110,(12+state.name.length)*2.7)}" lengthAdjust="spacing">กระดาษคำตอบ ${esc(state.name)}</text>`;
+  s+='<text x="8" y="23" font-size="3.2">ชื่อ-สกุล</text><line x1="22" y1="23.4" x2="92" y2="23.4" stroke="#000" stroke-width=".25"/>';
+  s+='<text x="97" y="23" font-size="3.2">เลขที่</text><line x1="107" y1="23.4" x2="126" y2="23.4" stroke="#000" stroke-width=".25"/>';
   for(let c=0;c<L.C;c++)for(let j=0;j<state.k;j++)
-    s+=`<text x="${L.x0+c*L.colW+L.bx+j*L.sp}" y="${L.y0-2}" font-size="3.2" text-anchor="middle">${lb[j]}</text>`;
+    s+=`<text x="${L.x0+c*L.colW+L.bx+j*L.sp}" y="${L.y0-1.6}" font-size="2.8" text-anchor="middle">${lb[j]}</text>`;
   L.bubbles.forEach((row,q)=>{
-    s+=`<text x="${row[0].x-3.6}" y="${row[0].y+1.2}" font-size="3.2" text-anchor="end">${q+1}</text>`;
-    row.forEach(b=>s+=`<circle cx="${b.x}" cy="${b.y}" r="${L.r}" fill="#fff" stroke="#000" stroke-width=".3"/>`);
+    s+=`<text x="${row[0].x-3.2}" y="${row[0].y+1}" font-size="2.8" text-anchor="end">${q+1}</text>`;
+    row.forEach(b=>s+=`<circle cx="${b.x}" cy="${b.y}" r="${L.r}" fill="#fff" stroke="#000" stroke-width=".28"/>`);
   });
-  marks.forEach(([q,c])=>{const b=L.bubbles[q][c];s+=`<circle cx="${b.x}" cy="${b.y}" r="2.3" fill="#222"/>`});
+  marks.forEach(([q,c])=>{const b=L.bubbles[q][c];s+=`<circle cx="${b.x}" cy="${b.y}" r="2" fill="#222"/>`});
   return s+'</svg>';
 }
 
@@ -299,7 +300,7 @@ function solveOrientation(pts,g,w,h){
     if(ratio<.55||ratio>.95)continue;
     const H=homography(src,q);if(!H)continue;
     const dot=sampleDisc(g,w,h,H,SHEET.dot[0],SHEET.dot[1],1.4);
-    const pa=(sampleDisc(g,w,h,H,60,5,1.4)+sampleDisc(g,w,h,H,120,5,1.4))/2;
+    const pa=(sampleDisc(g,w,h,H,50,SHEET.dot[1],1.4)+sampleDisc(g,w,h,H,100,SHEET.dot[1],1.4))/2;
     if(pa-dot>.3*pa)return{H,quad:q};
   }
   return null;
