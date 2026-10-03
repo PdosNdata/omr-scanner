@@ -61,6 +61,8 @@ td.r,th.r{text-align:right}
   body{background:#fff}
 }
 </style>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header><h1>📝 เฉลยปรนัย — สแกนตรวจกระดาษคำตอบด้วยกล้อง</h1></header>
@@ -162,26 +164,34 @@ td.r,th.r{text-align:right}
 
 <section id="t-hist">
   <div class="card">
-    <h2>บันทึกลง Google Sheet</h2>
-    <div class="row">
-      <input id="gsUrl" class="wide" placeholder="วางลิงก์ Web app ของ Apps Script (ขึ้นต้น https://script.google.com/macros/s/...)">
-      <label><input type="checkbox" id="gsAuto"> ส่งอัตโนมัติเมื่อกด "บันทึก"</label>
+    <h2>บัญชีและคลาวด์ (Supabase)</h2>
+    <div id="cNone" hidden class="hint">โหลดไลบรารี Supabase ไม่ได้ (ออฟไลน์?) — ยังใช้งานแบบเก็บในเครื่องได้ตามปกติ</div>
+    <div id="cCfg" hidden>
+      <p class="hint" style="margin:0 0 8px">ยังไม่ได้เชื่อม Supabase — ใส่ค่าจาก Project Settings → API (ผู้ดูแลตั้งครั้งเดียว)</p>
+      <div class="row"><input id="cUrl" class="wide" placeholder="Project URL เช่น https://xxxx.supabase.co">
+        <input id="cKey" class="wide" placeholder="anon public key"><button class="btn" id="cCfgSave">บันทึก</button></div>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn" id="gsAll">ส่งผลที่บันทึกไว้ทั้งหมด</button>
-      <button class="btn sec" id="gsTest">ส่งแถวทดสอบ</button>
-      <span class="hint" id="gsMsg" style="margin:0"></span>
+    <div id="cLogin" hidden>
+      <div class="row"><input id="cEmail" type="email" class="wide" placeholder="อีเมล" autocomplete="username">
+        <input id="cPw" type="password" class="wide" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
+        <button class="btn" id="cIn">เข้าสู่ระบบ</button><button class="btn sec" id="cUp">สมัครสมาชิก</button></div>
+      <p class="hint">ไม่เข้าสู่ระบบก็ใช้ได้ ข้อมูลจะเก็บในเครื่องนี้อย่างเดียว · เข้าสู่ระบบแล้วเฉลยและผลสอบจะซิงก์ข้ามเครื่องและเป็นของครูคนนั้นเท่านั้น</p>
     </div>
-    <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--pri)">วิธีตั้งค่า (ทำครั้งเดียว ใช้บัญชี Google ของครูเอง)</summary>
+    <div id="cUser" hidden>
+      <div class="row"><span>👤 <b id="cWho"></b></span>
+        <button class="btn" id="cSync">🔄 ซิงก์ตอนนี้</button><button class="btn sec" id="cOut">ออกจากระบบ</button></div>
+      <p class="hint">ผลสอบที่กด "บันทึก" และเฉลยที่แก้ จะส่งขึ้นคลาวด์อัตโนมัติ · ข้อมูลในเครื่องยังอยู่หลังออกจากระบบ</p>
+    </div>
+    <p class="hint" id="cMsg" style="min-height:1.2em"></p>
+    <details><summary style="cursor:pointer;color:var(--pri)">วิธีตั้งค่าฝั่งผู้ดูแล (ทำครั้งเดียว)</summary>
       <ol class="hint">
-        <li>สร้าง Google Sheet ใหม่ → เมนู <b>ส่วนขยาย → Apps Script</b></li>
-        <li>ลบโค้ดเดิมทั้งหมด แล้ววางโค้ดด้านล่าง กดบันทึก</li>
-        <li>กด <b>ทำให้ใช้งานได้ → การทำให้ใช้งานได้รายการใหม่</b> เลือกประเภท <b>เว็บแอป</b> · เรียกใช้ในฐานะ: <b>ฉัน</b> · ผู้มีสิทธิ์เข้าถึง: <b>ทุกคน</b></li>
-        <li>กดทำให้ใช้งานได้ อนุญาตสิทธิ์ แล้วคัดลอก <b>URL ของเว็บแอป</b> มาวางในช่องด้านบน</li>
+        <li>สร้างโปรเจกต์ที่ supabase.com</li>
+        <li>เมนู <b>SQL Editor</b> → วางโค้ดด้านล่าง → Run (สร้างตารางและกำหนดให้ครูเห็นเฉพาะข้อมูลของตัวเอง)</li>
+        <li><b>Project Settings → API</b> คัดลอก Project URL และ anon public key ใส่ในช่องด้านบน หรือในไฟล์ <code>config.js</code></li>
+        <li><b>Authentication → Providers → Email</b> ถ้าไม่ต้องการให้ยืนยันอีเมลตอนสมัคร ให้ปิด "Confirm email"</li>
       </ol>
-      <textarea id="gsCode" readonly rows="10" style="width:100%;font:12px monospace"></textarea>
-      <button class="btn sec" id="gsCopy" style="margin-top:6px">คัดลอกโค้ด</button>
-      <p class="hint">ผลแต่ละวิชาจะแยกเป็นแท็บของตัวเองใน Sheet มีคอลัมน์รหัสนักเรียน ชื่อ คะแนน และคำตอบรายข้อ · ส่งซ้ำได้ ระบบข้ามแถวที่ส่งไปแล้ว · ลิงก์นี้ใครได้ไปก็เขียนลง Sheet ของคุณได้ จึงไม่ควรแชร์ต่อ</p>
+      <textarea id="cSql" readonly rows="8" style="width:100%;font:12px monospace"></textarea>
+      <button class="btn sec" id="cSqlCopy" style="margin-top:6px">คัดลอก SQL</button>
     </details>
   </div>
   <div class="card">
@@ -190,7 +200,7 @@ td.r,th.r{text-align:right}
       <button class="btn sec" id="bkOut">⬆️ ส่งออกไฟล์สำรอง</button>
       <label class="btn sec" style="margin:0;cursor:pointer">⬇️ นำเข้าไฟล์สำรอง<input id="bkIn" type="file" accept=".json,application/json" hidden></label>
     </div>
-    <p class="hint">เก็บวิชา เฉลย และผลคะแนนทั้งหมด ใช้ย้ายข้อมูลระหว่างคอมกับมือถือ การนำเข้าจะแทนที่ข้อมูลปัจจุบันในเครื่อง (ลิงก์ Google Sheet ไม่รวมในไฟล์สำรอง)</p>
+    <p class="hint">เก็บวิชา เฉลย และผลคะแนนทั้งหมด ใช้ย้ายข้อมูลระหว่างคอมกับมือถือ การนำเข้าจะแทนที่ข้อมูลปัจจุบันในเครื่อง</p>
   </div>
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
@@ -208,7 +218,10 @@ td.r,th.r{text-align:right}
 /* ====================== สถานะ + จัดเก็บ ====================== */
 const LABELS={thai:['ก','ข','ค','ง','จ'],abc:['A','B','C','D','E']};
 const SKEY='omr-state-v1';
-const newSubject=name=>({name,n:20,k:4,labels:'thai',key:[],idLen:5});
+const uuid=()=>{if(crypto.randomUUID)try{return crypto.randomUUID()}catch(e){}
+  const b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&15|64;b[8]=b[8]&63|128;
+  const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`};
+const newSubject=name=>({id:uuid(),name,n:20,k:4,labels:'thai',key:[],idLen:5,upd:0});
 let db={subjects:[],active:0,history:[]};
 try{
   const o=JSON.parse(localStorage.getItem(SKEY)||'{}');
@@ -216,7 +229,8 @@ try{
   else if(o.key){db.subjects=[Object.assign(newSubject('วิชา 1'),{n:o.n,k:o.k,labels:o.labels,key:o.key})];db.history=o.history||[]}
 }catch(e){}
 if(!db.subjects.length)db.subjects=[newSubject('วิชา 1')];
-db.subjects.forEach(s=>{if(s.idLen==null)s.idLen=5});
+db.subjects.forEach(s=>{if(s.idLen==null)s.idLen=5;if(!s.id)s.id=uuid()});
+db.history.forEach(h=>{if(!h.id)h.id=uuid()});
 if(db.active>=db.subjects.length)db.active=0;
 // state = มุมมองของวิชาที่เลือกอยู่ (n,k,labels,key) + history รวมทุกวิชา
 const state={
@@ -228,7 +242,12 @@ const state={
   get name(){return db.subjects[db.active].name},
   get history(){return db.history},set history(v){db.history=v}
 };
-function save(){try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}}
+const sigOf=s=>JSON.stringify([s.name,s.n,s.k,s.labels,s.key,s.idLen]);
+function save(){
+  db.subjects.forEach(s=>{const g=sigOf(s);if(s.sig!==g){s.sig=g;s.upd=Date.now()}});
+  try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}
+  if(typeof cloudSchedule==='function')cloudSchedule();
+}
 function fitKey(){while(state.key.length<state.n)state.key.push(-1);state.key.length=state.n;
   state.key=state.key.map(v=>v>=state.k?-1:v)}
 fitKey();
@@ -503,8 +522,8 @@ function renderResult(){
 $('againBtn').onclick=()=>{cur=null;$('resView').hidden=true;$('scanView').hidden=false;paused=false;stable=0};
 $('saveBtn').onclick=()=>{
   if(!cur)return;const g=grade(cur.ans);
-  state.history.unshift({subject:state.name,sid:$('stuId').value.trim(),name:$('stuName').value.trim()||'(ไม่ระบุชื่อ)',score:g.right,total:g.total,t:Date.now(),ans:[...cur.ans],labels:state.labels});
-  save();renderHist();if(db.gsAuto&&db.sheetUrl)gsSend([state.history[0]]);
+  state.history.unshift({id:uuid(),subjectId:db.subjects[db.active].id,subject:state.name,sid:$('stuId').value.trim(),name:$('stuName').value.trim()||'(ไม่ระบุชื่อ)',score:g.right,total:g.total,t:Date.now(),ans:[...cur.ans],labels:state.labels});
+  save();renderHist();cloudPushResult(state.history[0]);
   $('againBtn').click();setStatus('บันทึกแล้ว — พร้อมสแกนแผ่นต่อไป','ok');
 };
 
@@ -551,10 +570,10 @@ function renderHist(){
   if(!h.length){box.innerHTML='<p class="hint">ยังไม่มีผลที่บันทึก</p>';return}
   box.innerHTML='<table><tr><th>วิชา</th><th>รหัส</th><th>ชื่อ</th><th class="r">คะแนน</th><th class="r">%</th><th>เวลา</th><th></th></tr>'+
     h.map((r,i)=>`<tr><td>${esc(r.subject||'-')}</td><td>${esc(r.sid||'-')}</td><td>${esc(r.name)}</td><td class="r">${r.score}/${r.total}</td><td class="r">${r.total?Math.round(r.score*100/r.total):'-'}</td><td>${new Date(r.t).toLocaleString('th-TH')}</td><td><button class="btn dng" data-i="${i}" style="padding:4px 10px">ลบ</button></td></tr>`).join('')+'</table>';
-  box.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{state.history.splice(+b.dataset.i,1);save();renderHist()});
+  box.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{const r=state.history.splice(+b.dataset.i,1)[0];cloudDelRes([r.id]);renderHist()});
 }
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-$('histClear').onclick=()=>{if(confirm('ลบผลที่บันทึกทั้งหมด?')){state.history=[];save();renderHist()}};
+$('histClear').onclick=()=>{if(confirm('ลบผลที่บันทึกทั้งหมด? (ถ้าเข้าสู่ระบบอยู่ จะลบในคลาวด์ด้วย)')){const ids=state.history.map(r=>r.id);state.history=[];cloudDelRes(ids);renderHist()}};
 $('csvBtn').onclick=()=>{
   if(!state.history.length)return;
   const maxN=Math.max(...state.history.map(r=>r.ans.length));
@@ -565,55 +584,11 @@ $('csvBtn').onclick=()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ผลสอบ.csv';a.click();
 };
 
-/* ====================== สำรองข้อมูล + Google Sheet ====================== */
-const GS_CODE=`function doPost(e){
-  var d=JSON.parse(e.postData.contents);
-  var name=String(d.subject||'ผลสอบ').replace(/[\\[\\]*?:\\/\\\\]/g,'-').slice(0,90);
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var sh=ss.getSheetByName(name)||ss.insertSheet(name);
-  if(sh.getLastRow()===0){
-    var h=['เวลา','รหัสนักเรียน','ชื่อ','คะแนน','เต็ม','เปอร์เซ็นต์','รหัสบันทึก'];
-    for(var i=1;i<=d.n;i++)h.push('ข้อ'+i);
-    sh.appendRow(h);sh.setFrozenRows(1);
-  }
-  var seen={};
-  if(sh.getLastRow()>1)sh.getRange(2,7,sh.getLastRow()-1,1).getValues().forEach(function(r){seen[String(r[0])]=1});
-  var rows=d.rows.filter(function(r){return !seen[String(r[6])]});
-  if(rows.length){
-    var w=Math.max.apply(null,rows.map(function(r){return r.length}));
-    rows=rows.map(function(r){while(r.length<w)r.push('');return r});
-    var r0=sh.getLastRow()+1;
-    sh.getRange(r0,2,rows.length,1).setNumberFormat('@');
-    sh.getRange(r0,1,rows.length,w).setValues(rows);
-  }
-  return ContentService.createTextOutput('ok:'+rows.length);
-}`;
-$('gsCode').value=GS_CODE;
-$('gsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(GS_CODE);$('gsMsg').textContent='คัดลอกโค้ดแล้ว'}catch(e){$('gsCode').select();document.execCommand('copy')}};
-$('gsUrl').value=db.sheetUrl||'';$('gsAuto').checked=!!db.gsAuto;
-$('gsUrl').onchange=()=>{db.sheetUrl=$('gsUrl').value.trim();save()};
-$('gsAuto').onchange=()=>{db.gsAuto=$('gsAuto').checked;save()};
+/* ====================== สำรองข้อมูล ====================== */
 const pad=n=>String(n).padStart(2,'0');
 const tstr=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`};
-function gsRow(r){
-  const pct=r.total?Math.round(r.score*100/r.total):'';
-  return[tstr(r.t),r.sid||'',r.name,r.score,r.total,pct,String(r.t),...r.ans.map(a=>a>=0?LABELS[r.labels||'thai'][a]:a===-2?'*':'-')];
-}
-async function gsSend(list){
-  const url=(db.sheetUrl||'').trim();
-  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){$('gsMsg').textContent='ใส่ลิงก์ Apps Script ก่อน';return false}
-  const by={};list.forEach(r=>{(by[r.subject||'ผลสอบ']=by[r.subject||'ผลสอบ']||[]).push(r)});
-  try{
-    for(const [subject,rs] of Object.entries(by))
-      await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({subject,n:Math.max(...rs.map(r=>r.ans.length)),rows:rs.map(gsRow)})});
-    $('gsMsg').textContent=`ส่งแล้ว ${list.length} รายการ — ตรวจใน Google Sheet (ถ้าไม่ขึ้น ให้เช็กลิงก์/สิทธิ์ "ทุกคน")`;return true;
-  }catch(e){$('gsMsg').textContent='ส่งไม่สำเร็จ: '+e.message;return false}
-}
-$('gsAll').onclick=()=>state.history.length?gsSend([...state.history].reverse()):($('gsMsg').textContent='ยังไม่มีผลที่บันทึก');
-$('gsTest').onclick=()=>gsSend([{subject:'ทดสอบ',sid:'00000',name:'แถวทดสอบ',score:0,total:0,t:Date.now(),ans:[],labels:'thai'}]);
 $('bkOut').onclick=()=>{
-  const {sheetUrl,gsAuto,...data}=db;
+  const {delRes,delSub,...data}=db;
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'omr-scanner',v:1,data},null,1)],{type:'application/json'}));
   a.download='สำรองข้อมูล-'+tstr(Date.now()).slice(0,10)+'.json';a.click();
 };
@@ -624,10 +599,187 @@ $('bkIn').onchange=async e=>{
     if(o.app!=='omr-scanner'||!Array.isArray(d.subjects)||!d.subjects.length||!Array.isArray(d.history))throw new Error('ไม่ใช่ไฟล์สำรองของแอปนี้');
     if(!confirm(`นำเข้า ${d.subjects.length} วิชา และผลคะแนน ${d.history.length} รายการ?\nข้อมูลปัจจุบันในเครื่องจะถูกแทนที่`))return;
     db.subjects=d.subjects;db.history=d.history;db.active=0;
-    db.subjects.forEach(s=>{if(s.idLen==null)s.idLen=5});fitKeyAll();save();
+    db.subjects.forEach(s=>{if(s.idLen==null)s.idLen=5;if(!s.id)s.id=uuid()});db.history.forEach(h=>{if(!h.id)h.id=uuid()});fitKeyAll();save();
     renderSubj();renderKey();renderHist();alert('นำเข้าสำเร็จ');
   }catch(err){alert('นำเข้าไม่สำเร็จ: '+err.message)}
 };
+
+/* ====================== คลาวด์ (Supabase) ====================== */
+const SB_SQL=`-- รันครั้งเดียวใน Supabase: SQL Editor → New query → วาง → Run
+-- ข้อมูลแต่ละแถวเป็นของครูเจ้าของ (user_id) และมองเห็นได้เฉพาะเจ้าของเท่านั้น (Row Level Security)
+
+create table if not exists public.subjects (
+  id uuid primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name text not null,
+  n int not null,
+  k int not null,
+  labels text not null,
+  id_len int not null default 5,
+  key jsonb not null default '[]',
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
+create table if not exists public.results (
+  id uuid primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  subject_id uuid references public.subjects(id) on delete set null,
+  subject_name text not null,
+  student_id text not null default '',
+  student_name text not null default '',
+  score int not null,
+  total int not null,
+  answers jsonb not null,
+  labels text not null default 'thai',
+  taken_at timestamptz not null,
+  deleted_at timestamptz
+);
+
+-- ถ้าเคยรันเวอร์ชันก่อนหน้าแล้ว ให้เพิ่มคอลัมน์ด้วย:
+alter table public.subjects add column if not exists deleted_at timestamptz;
+alter table public.results add column if not exists deleted_at timestamptz;
+
+create index if not exists results_user_idx on public.results (user_id, subject_id, taken_at desc);
+
+alter table public.subjects enable row level security;
+alter table public.results enable row level security;
+
+drop policy if exists "own subjects" on public.subjects;
+create policy "own subjects" on public.subjects for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "own results" on public.results;
+create policy "own results" on public.results for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+`;
+let sb=null,sbUser=null,syncing=false,pushTimer=null,lastUser=null;
+const cmsg=(t,bad)=>{const e=$('cMsg');e.textContent=t;e.style.color=bad?'var(--bad)':''};
+const thErr=m=>/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
+  /already registered/i.test(m)?'อีเมลนี้สมัครแล้ว ลองเข้าสู่ระบบ':/at least/i.test(m)?'รหัสผ่านต้องมีอย่างน้อย 6 ตัว':/valid email|invalid format/i.test(m)?'รูปแบบอีเมลไม่ถูกต้อง':m;
+function sbCfg(){
+  try{const o=JSON.parse(localStorage.getItem('omr-sb')||'null');if(o&&o.url&&o.anonKey)return o}catch(e){}
+  const c=window.SUPABASE_CONFIG;return c&&c.url&&c.anonKey?c:null;
+}
+const subjToRow=s=>({id:s.id,name:s.name,n:s.n,k:s.k,labels:s.labels,id_len:s.idLen,key:s.key,updated_at:new Date(s.upd||Date.now()).toISOString()});
+const rowToSubj=r=>({id:r.id,name:r.name,n:r.n,k:r.k,labels:r.labels,idLen:r.id_len,key:r.key,upd:Date.parse(r.updated_at)});
+const resToRow=(h,ok)=>({id:h.id,subject_id:h.subjectId&&ok.has(h.subjectId)?h.subjectId:null,subject_name:h.subject||'',student_id:h.sid||'',student_name:h.name||'',
+  score:h.score,total:h.total,answers:h.ans,labels:h.labels||'thai',taken_at:new Date(h.t).toISOString()});
+const rowToRes=r=>({id:r.id,subjectId:r.subject_id,subject:r.subject_name,sid:r.student_id,name:r.student_name,score:r.score,total:r.total,ans:r.answers,labels:r.labels,t:Date.parse(r.taken_at)});
+
+function sbInit(client){
+  sb=client||null;sbUser=null;lastUser=null;
+  const c=sbCfg();
+  if(!sb&&c&&window.supabase){
+    try{sb=window.supabase.createClient(c.url,c.anonKey)}catch(e){sb=null;cmsg('ค่า URL/key ไม่ถูกต้อง: '+e.message,true)}
+  }
+  if(sb&&sb.auth&&sb.auth.onAuthStateChange)sb.auth.onAuthStateChange((ev,sess)=>{
+    sbUser=sess?sess.user:null;renderCloud();
+    if(sbUser&&sbUser.id!==lastUser){lastUser=sbUser.id;setTimeout(cloudSync,0)}
+    if(!sbUser)lastUser=null;
+  });
+  renderCloud(c);
+}
+function renderCloud(c){
+  c=c||sbCfg();
+  $('cNone').hidden=!(c&&!window.supabase&&!sb);
+  $('cCfg').hidden=!!c;
+  $('cLogin').hidden=!(sb&&!sbUser);
+  $('cUser').hidden=!(sb&&sbUser);
+  if(sbUser)$('cWho').textContent=sbUser.email||sbUser.id;
+}
+$('cSql').value=SB_SQL;
+$('cSqlCopy').onclick=async()=>{try{await navigator.clipboard.writeText(SB_SQL);cmsg('คัดลอก SQL แล้ว')}catch(e){$('cSql').select();document.execCommand('copy')}};
+$('cCfgSave').onclick=()=>{
+  const url=$('cUrl').value.trim().replace(/\/+$/,''),anonKey=$('cKey').value.trim();
+  if(!/^https:\/\//.test(url)||anonKey.length<20){cmsg('ใส่ Project URL (https://...) และ anon key ให้ครบ',true);return}
+  try{localStorage.setItem('omr-sb',JSON.stringify({url,anonKey}))}catch(e){}
+  cmsg('');sbInit();
+};
+$('cIn').onclick=async()=>{
+  const{error}=await sb.auth.signInWithPassword({email:$('cEmail').value.trim(),password:$('cPw').value});
+  cmsg(error?thErr(error.message):'',!!error);
+};
+$('cUp').onclick=async()=>{
+  const{data,error}=await sb.auth.signUp({email:$('cEmail').value.trim(),password:$('cPw').value});
+  if(error)return cmsg(thErr(error.message),true);
+  if(!data.session)cmsg('สมัครแล้ว — ตรวจอีเมลเพื่อยืนยัน แล้วกลับมาเข้าสู่ระบบ');
+};
+$('cOut').onclick=async()=>{await sb.auth.signOut();cmsg('ออกจากระบบแล้ว ข้อมูลในเครื่องยังอยู่')};
+$('cSync').onclick=()=>cloudSync();
+
+async function flushDeletes(){
+  if(!sb||!sbUser)return;
+  const now=new Date().toISOString();
+  if(db.delRes&&db.delRes.length){await sb.from('results').update({deleted_at:now}).in('id',db.delRes).throwOnError();db.delRes=[]}
+  if(db.delSub&&db.delSub.length){await sb.from('subjects').update({deleted_at:now}).in('id',db.delSub).throwOnError();db.delSub=[]}
+}
+function cloudDelRes(ids){
+  (db.delRes=db.delRes||[]).push(...ids);save();
+  flushDeletes().then(save).catch(e=>cmsg('ลบในคลาวด์ไม่สำเร็จ (จะลองใหม่ตอนซิงก์): '+e.message,true));
+}
+async function pushSubjectsNow(){
+  const ch=db.subjects.filter(s=>s.upd>(s.pushed||0));if(!ch.length)return 0;
+  await sb.from('subjects').upsert(ch.map(subjToRow)).throwOnError();
+  ch.forEach(s=>s.pushed=s.upd);try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}
+  return ch.length;
+}
+function cloudSchedule(){
+  if(!sb||!sbUser||syncing)return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async()=>{
+    if(!sb||!sbUser||syncing)return;
+    try{if(await pushSubjectsNow())cmsg('บันทึกเฉลยขึ้นคลาวด์แล้ว ✓')}
+    catch(e){cmsg('ส่งขึ้นคลาวด์ไม่สำเร็จ: '+e.message,true)}
+  },1200);
+}
+async function cloudPushResult(h){
+  if(!sb||!sbUser)return;
+  try{
+    await pushSubjectsNow();
+    await sb.from('results').upsert(resToRow(h,new Set(db.subjects.map(s=>s.id)))).throwOnError();
+    cmsg('บันทึกผลสอบขึ้นคลาวด์แล้ว ✓');
+  }catch(e){cmsg('ส่งผลสอบขึ้นคลาวด์ไม่สำเร็จ (จะลองใหม่ตอนซิงก์): '+e.message,true)}
+}
+// วิชาเริ่มต้นที่ยังไม่เคยแก้ ไม่ต้องส่งขึ้นคลาวด์ (กันวิชาว่างซ้ำเมื่อเปิดเครื่องใหม่)
+const isPristine=s=>s.name==='วิชา 1'&&s.n===20&&s.k===4&&s.key.every(v=>v<0)&&!db.history.some(h=>h.subjectId===s.id);
+// ผสานข้อมูล: วิชา = ฉบับที่แก้ล่าสุดชนะ · ผลสอบ = รวมทั้งสองฝั่ง (ตาม id) · ที่ถูกลบ (deleted_at) จะหายทุกเครื่อง
+async function cloudSync(){
+  if(!sb||!sbUser||syncing)return;
+  syncing=true;cmsg('กำลังซิงก์…');
+  try{
+    await flushDeletes();
+    const csAll=(await sb.from('subjects').select('*').throwOnError()).data;
+    const crAll=(await sb.from('results').select('*').throwOnError()).data;
+    const cs=csAll.filter(r=>!r.deleted_at),cr=crAll.filter(r=>!r.deleted_at);
+    const goneSub=new Set(csAll.filter(r=>r.deleted_at).map(r=>r.id)),goneRes=new Set(crAll.filter(r=>r.deleted_at).map(r=>r.id));
+    const activeId=db.subjects[db.active]&&db.subjects[db.active].id;
+    db.subjects=db.subjects.filter(s=>!goneSub.has(s.id));
+    db.history=db.history.filter(h=>!goneRes.has(h.id));
+    if(cs.length)db.subjects=db.subjects.filter(s=>!(isPristine(s)&&!csAll.some(r=>r.id===s.id)));
+    if(!db.subjects.length&&!cs.length)db.subjects=[newSubject('วิชา 1')];
+    const loc=new Map(db.subjects.map(s=>[s.id,s])),inCloud=new Set(csAll.map(r=>r.id)),up=[];let pulledSub=0;
+    cs.forEach(r=>{const c=rowToSubj(r),l=loc.get(c.id);
+      if(!l){c.sig=sigOf(c);c.pushed=c.upd;db.subjects.push(c);pulledSub++}
+      else if(c.upd>l.upd){Object.assign(l,c);l.sig=sigOf(l);l.pushed=l.upd;pulledSub++}
+      else if(c.upd<l.upd)up.push(l);
+      else l.pushed=l.upd});
+    db.subjects.forEach(s=>{if(!inCloud.has(s.id))up.push(s)});
+    if(!db.subjects.length)db.subjects=[newSubject('วิชา 1')];
+    const ai=db.subjects.findIndex(s=>s.id===activeId);db.active=ai>=0?ai:0;
+    fitKeyAll();
+    if(up.length){await sb.from('subjects').upsert(up.map(subjToRow)).throwOnError();up.forEach(s=>s.pushed=s.upd)}
+    const haveLocal=new Set(db.history.map(h=>h.id)),haveCloud=new Set(crAll.map(r=>r.id));
+    let pulledRes=0;cr.forEach(r=>{if(!haveLocal.has(r.id)){db.history.push(rowToRes(r));pulledRes++}});
+    const upr=db.history.filter(h=>!haveCloud.has(h.id)),ok=new Set(db.subjects.map(s=>s.id));
+    if(upr.length)await sb.from('results').upsert(upr.map(h=>resToRow(h,ok))).throwOnError();
+    db.history.sort((a,b)=>b.t-a.t);
+    try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}
+    renderSubj();renderKey();renderHist();
+    cmsg(`ซิงก์เสร็จ ✓ ดึงลงมา: ${pulledSub} วิชา, ${pulledRes} ผลสอบ · ส่งขึ้น: ${up.length} วิชา, ${upr.length} ผลสอบ`);
+  }catch(e){cmsg('ซิงก์ไม่สำเร็จ: '+(e.message||e),true)}
+  finally{syncing=false}
+}
 
 /* ====================== แท็บ ====================== */
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
@@ -656,11 +808,11 @@ $('subjRen').onclick=()=>{
 };
 $('subjDel').onclick=()=>{
   if(db.subjects.length<2||!confirm(`ลบวิชา "${state.name}" พร้อมเฉลย? (ผลคะแนนที่บันทึกไว้ยังอยู่)`))return;
-  db.subjects.splice(db.active,1);switchSubj(Math.max(0,db.active-1));
+  const gone=db.subjects.splice(db.active,1)[0];(db.delSub=db.delSub||[]).push(gone.id);save();flushDeletes().catch(()=>{});switchSubj(Math.max(0,db.active-1));
 };
 function fitKeyAll(){const a=db.active;db.subjects.forEach((_,i)=>{db.active=i;fitKey()});db.active=a}
 fitKeyAll();
-renderSubj();renderKey();renderHist();
+renderSubj();renderKey();renderHist();sbInit();
 window.__omr={state,sheetSVG,process,layout};
 </script>
 </body>
