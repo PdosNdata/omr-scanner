@@ -173,10 +173,15 @@ td.r,th.r{text-align:right}
         <input id="cKey" class="wide" placeholder="anon public key"><button class="btn" id="cCfgSave">บันทึก</button></div>
     </div>
     <div id="cLogin" hidden>
-      <div class="row"><input id="cEmail" type="email" class="wide" placeholder="อีเมล" autocomplete="username">
-        <input id="cPw" type="password" class="wide" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
-        <button class="btn" id="cIn">เข้าสู่ระบบ</button><button class="btn sec" id="cUp">สมัครสมาชิก</button></div>
-      <label style="display:inline-block;margin-top:6px"><input type="checkbox" id="cShowPw"> แสดงรหัสผ่านที่พิมพ์</label>
+      <div class="row"><input id="cEmail" type="email" class="wide" placeholder="อีเมลของคุณครู" autocomplete="username" inputmode="email">
+        <button class="btn" id="cMagic">✉️ ส่งลิงก์เข้าสู่ระบบทางอีเมล</button></div>
+      <p class="hint">ใส่อีเมลอย่างเดียว ไม่ต้องใช้รหัสผ่าน — ระบบส่งลิงก์ให้ กดลิงก์ในอีเมลแล้วจะเข้าสู่ระบบอัตโนมัติ (ครั้งแรกจะสร้างบัญชีให้เอง) · ถ้าไม่เห็นอีเมล ให้ดูในกล่องจดหมายขยะ</p>
+      <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--pri)">เข้าด้วยรหัสผ่านแทน (ไม่บังคับ)</summary>
+        <div class="row" style="margin-top:8px">
+          <input id="cPw" type="password" class="wide" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
+          <button class="btn" id="cIn">เข้าสู่ระบบ</button><button class="btn sec" id="cUp">สมัครด้วยรหัสผ่าน</button></div>
+        <label style="display:inline-block;margin-top:6px"><input type="checkbox" id="cShowPw"> แสดงรหัสผ่านที่พิมพ์</label>
+      </details>
       <p class="hint">ไม่เข้าสู่ระบบก็ใช้ได้ ข้อมูลจะเก็บในเครื่องนี้อย่างเดียว · เข้าสู่ระบบแล้วเฉลยและผลสอบจะซิงก์ข้ามเครื่องและเป็นของครูคนนั้นเท่านั้น</p>
     </div>
     <div id="cUser" hidden>
@@ -190,7 +195,9 @@ td.r,th.r{text-align:right}
         <li>สร้างโปรเจกต์ที่ supabase.com</li>
         <li>เมนู <b>SQL Editor</b> → วางโค้ดด้านล่าง → Run (สร้างตารางและกำหนดให้ครูเห็นเฉพาะข้อมูลของตัวเอง)</li>
         <li><b>Project Settings → API</b> คัดลอก Project URL และ anon public key ใส่ในช่องด้านบน หรือในไฟล์ <code>config.js</code></li>
-        <li><b>Authentication → Providers → Email</b> ถ้าไม่ต้องการให้ยืนยันอีเมลตอนสมัคร ให้ปิด "Confirm email"</li>
+        <li><b>Authentication → URL Configuration</b> ตั้ง <b>Site URL</b> เป็นที่อยู่เว็บแอป (เช่น https://pdosndata.github.io/omr-scanner/) และเพิ่มที่อยู่เดียวกันใน <b>Redirect URLs</b> — ไม่ตั้งค่านี้ ลิงก์ในอีเมลจะพาไปผิดที่</li>
+        <li><b>Authentication → Providers → Email</b> เปิด Email ไว้ (ลิงก์เข้าสู่ระบบทางอีเมลใช้ได้เลย) · ถ้าไม่ต้องการให้ยืนยันอีเมลตอนสมัครด้วยรหัสผ่าน ให้ปิด "Confirm email"</li>
+        <li>ตัวส่งอีเมลเริ่มต้นของ Supabase ส่งได้น้อยมากต่อชั่วโมง (ไว้ทดสอบ) ถ้ามีครูหลายคน ให้ตั้ง <b>Project Settings → Authentication → SMTP</b> ใช้บริการส่งอีเมลของตัวเอง</li>
       </ol>
       <textarea id="cSql" readonly rows="8" style="width:100%;font:12px monospace"></textarea>
       <button class="btn sec" id="cSqlCopy" style="margin-top:6px">คัดลอก SQL</button>
@@ -671,7 +678,7 @@ create policy "own results" on public.results for all
 `;
 let sb=null,sbUser=null,syncing=false,pushTimer=null,lastUser=null;
 const cmsg=(t,bad)=>{const e=$('cMsg');e.textContent=t;e.style.color=bad?'var(--bad)':''};
-const thErr=m=>/Anonymous sign-ins|provide either an email/i.test(m)?'กรอกอีเมลและรหัสผ่านให้ครบก่อน':/rate limit|too many/i.test(m)?'ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่':/signups not allowed/i.test(m)?'ระบบปิดรับสมัครสมาชิกใหม่':/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
+const thErr=m=>/only request this after|security purposes/i.test(m)?'ขอลิงก์ได้อีกครั้งในอีกประมาณ 1 นาที รอสักครู่':/email rate limit|over_email_send_rate_limit/i.test(m)?'ระบบส่งอีเมลเกินโควตาชั่วคราว (ตัวส่งเริ่มต้นของ Supabase จำกัดจำนวนต่อชั่วโมง) ลองใหม่ภายหลัง':/Anonymous sign-ins|provide either an email/i.test(m)?'กรอกอีเมลและรหัสผ่านให้ครบก่อน':/rate limit|too many/i.test(m)?'ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่':/signups not allowed/i.test(m)?'ระบบปิดรับสมัครสมาชิกใหม่':/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
   /already registered/i.test(m)?'อีเมลนี้สมัครแล้ว ลองเข้าสู่ระบบ':/at least/i.test(m)?'รหัสผ่านต้องมีอย่างน้อย 6 ตัว':/valid email|invalid format/i.test(m)?'รูปแบบอีเมลไม่ถูกต้อง':m;
 function sbCfg(){
   try{const o=JSON.parse(localStorage.getItem('omr-sb')||'null');if(o&&o.url&&o.anonKey)return o}catch(e){}
@@ -724,8 +731,21 @@ $('cIn').onclick=async()=>{
   const{error}=await sb.auth.signInWithPassword(c);
   cmsg(error?thErr(error.message):'',!!error);
 };
+let magicTimer=null;
+$('cMagic').onclick=async()=>{
+  const email=$('cEmail').value.trim();
+  if(!email)return cmsg('กรอกอีเมลก่อน',true);
+  if(!/^\S+@\S+\.\S+$/.test(email))return cmsg('รูปแบบอีเมลไม่ถูกต้อง',true);
+  const btn=$('cMagic');btn.disabled=true;cmsg('กำลังส่งลิงก์…');
+  const{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split('#')[0].split('?')[0]}});
+  if(error){btn.disabled=false;return cmsg(thErr(error.message),true)}
+  cmsg(`ส่งลิงก์ไปที่ ${email} แล้ว — เปิดอีเมลแล้วกดลิงก์ในอีเมล (ดูในกล่องจดหมายขยะด้วยถ้าไม่เจอ)`);
+  let left=60;btn.textContent=`ส่งอีกครั้งได้ใน ${left} วินาที`;
+  clearInterval(magicTimer);
+  magicTimer=setInterval(()=>{left--;if(left<=0){clearInterval(magicTimer);btn.disabled=false;btn.textContent='✉️ ส่งลิงก์เข้าสู่ระบบทางอีเมล'}else btn.textContent=`ส่งอีกครั้งได้ใน ${left} วินาที`},1000);
+};
 $('cPw').addEventListener('keydown',e=>{if(e.key==='Enter')$('cIn').click()});
-$('cEmail').addEventListener('keydown',e=>{if(e.key==='Enter')$('cPw').focus()});
+$('cEmail').addEventListener('keydown',e=>{if(e.key==='Enter')$('cMagic').click()});
 $('cShowPw').onchange=()=>{$('cPw').type=$('cShowPw').checked?'text':'password'};
 $('cUp').onclick=async()=>{
   const c=cCreds();if(!c)return;
