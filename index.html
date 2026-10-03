@@ -150,6 +150,7 @@ td.r,th.r{text-align:right}
         <div class="row">
           <label>รหัส <input id="stuId" style="width:110px" inputmode="numeric" placeholder="รหัสนักเรียน"></label>
           <input id="stuName" placeholder="ชื่อผู้สอบ (ไม่บังคับ)">
+          <span id="stuInfo" class="hint" style="margin:0"></span>
           <button class="btn" id="saveBtn">💾 บันทึก</button>
           <button class="btn sec" id="againBtn">สแกนแผ่นต่อไป</button>
         </div>
@@ -173,6 +174,8 @@ td.r,th.r{text-align:right}
         <input id="cKey" class="wide" placeholder="anon public key"><button class="btn" id="cCfgSave">บันทึก</button></div>
     </div>
     <div id="cLogin" hidden>
+      <div id="cShared" hidden class="row"><span>ต้องเข้าสู่ระบบที่เว็บโรงเรียนก่อน แล้วกลับมาหน้านี้</span><a class="btn" id="cSharedLink" href="/">ไปหน้าเข้าสู่ระบบ</a></div>
+      <div id="cForm">
       <div class="row"><input id="cEmail" type="email" class="wide" placeholder="อีเมลของคุณครู" autocomplete="username" inputmode="email">
         <button class="btn" id="cMagic">✉️ ส่งลิงก์เข้าสู่ระบบทางอีเมล</button></div>
       <p class="hint">ใส่อีเมลอย่างเดียว ไม่ต้องใช้รหัสผ่าน — ระบบส่งลิงก์ให้ กดลิงก์ในอีเมลแล้วจะเข้าสู่ระบบอัตโนมัติ (ครั้งแรกจะสร้างบัญชีให้เอง) · ถ้าไม่เห็นอีเมล ให้ดูในกล่องจดหมายขยะ</p>
@@ -183,6 +186,7 @@ td.r,th.r{text-align:right}
         <label style="display:inline-block;margin-top:6px"><input type="checkbox" id="cShowPw"> แสดงรหัสผ่านที่พิมพ์</label>
       </details>
       <p class="hint">ไม่เข้าสู่ระบบก็ใช้ได้ ข้อมูลจะเก็บในเครื่องนี้อย่างเดียว · เข้าสู่ระบบแล้วเฉลยและผลสอบจะซิงก์ข้ามเครื่องและเป็นของครูคนนั้นเท่านั้น</p>
+      </div>
     </div>
     <div id="cUser" hidden>
       <div class="row"><span>👤 <b id="cWho"></b></span>
@@ -190,7 +194,7 @@ td.r,th.r{text-align:right}
       <p class="hint">ผลสอบที่กด "บันทึก" และเฉลยที่แก้ จะส่งขึ้นคลาวด์อัตโนมัติ · ข้อมูลในเครื่องยังอยู่หลังออกจากระบบ</p>
     </div>
     <p class="hint" id="cMsg" style="min-height:1.2em"></p>
-    <details><summary style="cursor:pointer;color:var(--pri)">วิธีตั้งค่าฝั่งผู้ดูแล (ทำครั้งเดียว)</summary>
+    <details id="cAdmin"><summary style="cursor:pointer;color:var(--pri)">วิธีตั้งค่าฝั่งผู้ดูแล (ทำครั้งเดียว)</summary>
       <ol class="hint">
         <li>สร้างโปรเจกต์ที่ supabase.com</li>
         <li>เมนู <b>SQL Editor</b> → วางโค้ดด้านล่าง → Run (สร้างตารางและกำหนดให้ครูเห็นเฉพาะข้อมูลของตัวเอง)</li>
@@ -488,7 +492,7 @@ function process(cv){
   const full=d.pts.map(p=>[p[0]*d.sc,p[1]*d.sc]),o=solveOrientation(full,g,w,h);
   if(!o)return false;
   cur={cv,H:o.H,ans:readSheet(g,w,h,o.H,state.n,state.k),id:state.idLen?readId(g,w,h,o.H,state.idLen):''};
-  paused=true;$('scanView').hidden=true;$('resView').hidden=false;$('stuName').value='';$('stuId').value=cur.id;$('stuId').parentElement.hidden=!state.idLen;
+  paused=true;$('scanView').hidden=true;$('resView').hidden=false;$('stuName').value='';$('stuId').value=cur.id;$('stuName').dataset.auto='';$('stuId').parentElement.hidden=!state.idLen;lookupStudent();
   renderResult();return true;
 }
 function grade(ans){
@@ -676,6 +680,8 @@ drop policy if exists "own results" on public.results;
 create policy "own results" on public.results for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 `;
+// โหมดฝังในเว็บโรงเรียน: ตั้งค่าผ่าน window.OMR_CONFIG (ดู config.js) — ไม่ตั้ง = โหมดเดี่ยวเหมือนเดิม
+const OC=window.OMR_CONFIG||{},T={subjects:OC.subjectsTable||'subjects',results:OC.resultsTable||'results'};
 let sb=null,sbUser=null,syncing=false,pushTimer=null,lastUser=null;
 const cmsg=(t,bad)=>{const e=$('cMsg');e.textContent=t;e.style.color=bad?'var(--bad)':''};
 const thErr=m=>/only request this after|security purposes/i.test(m)?'ขอลิงก์ได้อีกครั้งในอีกประมาณ 1 นาที รอสักครู่':/email rate limit|over_email_send_rate_limit/i.test(m)?'ระบบส่งอีเมลเกินโควตาชั่วคราว (ตัวส่งเริ่มต้นของ Supabase จำกัดจำนวนต่อชั่วโมง) ลองใหม่ภายหลัง':/Anonymous sign-ins|provide either an email/i.test(m)?'กรอกอีเมลและรหัสผ่านให้ครบก่อน':/rate limit|too many/i.test(m)?'ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่':/signups not allowed/i.test(m)?'ระบบปิดรับสมัครสมาชิกใหม่':/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
@@ -698,13 +704,14 @@ function sbInit(client){
   }
   if(sb&&sb.auth&&sb.auth.onAuthStateChange)sb.auth.onAuthStateChange((ev,sess)=>{
     sbUser=sess?sess.user:null;renderCloud();
-    if(sbUser&&sbUser.id!==lastUser){lastUser=sbUser.id;setTimeout(cloudSync,0)}
+    if(sbUser&&sbUser.id!==lastUser){lastUser=sbUser.id;setTimeout(()=>{cloudSync();loadStudents()},0)}
     if(!sbUser)lastUser=null;
   });
   renderCloud(c);
 }
 function renderCloud(c){
   c=c||sbCfg();
+  const shared=!!OC.loginUrl;$('cForm').hidden=shared;$('cShared').hidden=!shared;$('cAdmin').hidden=shared;if(shared)$('cSharedLink').href=OC.loginUrl;
   $('cNone').hidden=!(c&&!window.supabase&&!sb);
   $('cCfg').hidden=!!c;
   $('cLogin').hidden=!(sb&&!sbUser);
@@ -761,8 +768,8 @@ $('cSync').onclick=()=>cloudSync();
 async function flushDeletes(){
   if(!sb||!sbUser)return;
   const now=new Date().toISOString();
-  if(db.delRes&&db.delRes.length){await sb.from('results').update({deleted_at:now}).in('id',db.delRes).throwOnError();db.delRes=[]}
-  if(db.delSub&&db.delSub.length){await sb.from('subjects').update({deleted_at:now}).in('id',db.delSub).throwOnError();db.delSub=[]}
+  if(db.delRes&&db.delRes.length){await sb.from(T.results).update({deleted_at:now}).in('id',db.delRes).throwOnError();db.delRes=[]}
+  if(db.delSub&&db.delSub.length){await sb.from(T.subjects).update({deleted_at:now}).in('id',db.delSub).throwOnError();db.delSub=[]}
 }
 function cloudDelRes(ids){
   (db.delRes=db.delRes||[]).push(...ids);save();
@@ -770,7 +777,7 @@ function cloudDelRes(ids){
 }
 async function pushSubjectsNow(){
   const ch=db.subjects.filter(s=>s.upd>(s.pushed||0));if(!ch.length)return 0;
-  await sb.from('subjects').upsert(ch.map(subjToRow)).throwOnError();
+  await sb.from(T.subjects).upsert(ch.map(subjToRow)).throwOnError();
   ch.forEach(s=>s.pushed=s.upd);try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}
   return ch.length;
 }
@@ -787,10 +794,39 @@ async function cloudPushResult(h){
   if(!sb||!sbUser)return;
   try{
     await pushSubjectsNow();
-    await sb.from('results').upsert(resToRow(h,new Set(db.subjects.map(s=>s.id)))).throwOnError();
+    await sb.from(T.results).upsert(resToRow(h,new Set(db.subjects.map(s=>s.id)))).throwOnError();
     cmsg('บันทึกผลสอบขึ้นคลาวด์แล้ว ✓');
   }catch(e){cmsg('ส่งผลสอบขึ้นคลาวด์ไม่สำเร็จ (จะลองใหม่ตอนซิงก์): '+e.message,true)}
 }
+// ทะเบียนนักเรียน (โหมดฝัง): โหลดครั้งเดียวหลังล็อกอิน แล้วค้นจากรหัสที่อ่านได้
+let studentMap=new Map();
+async function loadStudents(){
+  if(!sb||!sbUser||!OC.studentsTable)return;
+  try{
+    let all=[];
+    for(let from=0;;from+=1000){
+      const{data}=await sb.from(OC.studentsTable).select('student_code,prefix,first_name,last_name,class_level,room').eq('is_active',true).range(from,from+999).throwOnError();
+      all=all.concat(data);if(data.length<1000)break;
+    }
+    studentMap=new Map(all.map(x=>[String(x.student_code).trim(),x]));
+    lookupStudent();
+  }catch(e){cmsg('โหลดรายชื่อนักเรียนไม่สำเร็จ: '+e.message,true)}
+}
+const stuFull=x=>`${x.prefix||''}${x.first_name} ${x.last_name||''}`.trim();
+function lookupStudent(){
+  const code=$('stuId').value.trim(),info=$('stuInfo');
+  if(!OC.studentsTable||!studentMap.size){info.textContent='';return}
+  if(!code){info.textContent='';return}
+  if(code.includes('?')){info.style.color='var(--warn)';info.textContent='อ่านรหัสไม่ครบ — แก้ช่องรหัสด้วยมือ';return}
+  const x=studentMap.get(code);
+  if(x){
+    info.style.color='var(--ok)';info.textContent=`✓ ${stuFull(x)} · ${x.class_level}${x.room?'/'+x.room:''}`;
+    const nm=$('stuName');if(!nm.value.trim()||nm.dataset.auto==='1'){nm.value=stuFull(x);nm.dataset.auto='1'}
+  }else{info.style.color='var(--bad)';info.textContent='ไม่พบรหัสนี้ในทะเบียนนักเรียน'}
+}
+$('stuId').addEventListener('input',lookupStudent);
+$('stuName').addEventListener('input',()=>{$('stuName').dataset.auto='0'});
+
 // วิชาเริ่มต้นที่ยังไม่เคยแก้ ไม่ต้องส่งขึ้นคลาวด์ (กันวิชาว่างซ้ำเมื่อเปิดเครื่องใหม่)
 const isPristine=s=>s.name==='วิชา 1'&&s.n===20&&s.k===4&&s.key.every(v=>v<0)&&!db.history.some(h=>h.subjectId===s.id);
 // ผสานข้อมูล: วิชา = ฉบับที่แก้ล่าสุดชนะ · ผลสอบ = รวมทั้งสองฝั่ง (ตาม id) · ที่ถูกลบ (deleted_at) จะหายทุกเครื่อง
@@ -799,8 +835,8 @@ async function cloudSync(){
   syncing=true;cmsg('กำลังซิงก์…');
   try{
     await flushDeletes();
-    const csAll=(await sb.from('subjects').select('*').throwOnError()).data;
-    const crAll=(await sb.from('results').select('*').throwOnError()).data;
+    const csAll=(await sb.from(T.subjects).select('*').throwOnError()).data;
+    const crAll=(await sb.from(T.results).select('*').throwOnError()).data;
     const cs=csAll.filter(r=>!r.deleted_at),cr=crAll.filter(r=>!r.deleted_at);
     const goneSub=new Set(csAll.filter(r=>r.deleted_at).map(r=>r.id)),goneRes=new Set(crAll.filter(r=>r.deleted_at).map(r=>r.id));
     const activeId=db.subjects[db.active]&&db.subjects[db.active].id;
@@ -818,11 +854,11 @@ async function cloudSync(){
     if(!db.subjects.length)db.subjects=[newSubject('วิชา 1')];
     const ai=db.subjects.findIndex(s=>s.id===activeId);db.active=ai>=0?ai:0;
     fitKeyAll();
-    if(up.length){await sb.from('subjects').upsert(up.map(subjToRow)).throwOnError();up.forEach(s=>s.pushed=s.upd)}
+    if(up.length){await sb.from(T.subjects).upsert(up.map(subjToRow)).throwOnError();up.forEach(s=>s.pushed=s.upd)}
     const haveLocal=new Set(db.history.map(h=>h.id)),haveCloud=new Set(crAll.map(r=>r.id));
     let pulledRes=0;cr.forEach(r=>{if(!haveLocal.has(r.id)){db.history.push(rowToRes(r));pulledRes++}});
     const upr=db.history.filter(h=>!haveCloud.has(h.id)),ok=new Set(db.subjects.map(s=>s.id));
-    if(upr.length)await sb.from('results').upsert(upr.map(h=>resToRow(h,ok))).throwOnError();
+    if(upr.length)await sb.from(T.results).upsert(upr.map(h=>resToRow(h,ok))).throwOnError();
     db.history.sort((a,b)=>b.t-a.t);
     try{localStorage.setItem(SKEY,JSON.stringify(db))}catch(e){}
     renderSubj();renderKey();renderHist();
