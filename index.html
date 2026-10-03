@@ -90,6 +90,9 @@ td.r,th.r{text-align:right}
       <label>ตัวเลือก
         <select id="k"><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
       </label>
+      <label>รหัสนักเรียน
+        <select id="idl"><option value="0">ไม่มีช่องรหัส</option><option value="4">4 หลัก</option><option value="5">5 หลัก</option><option value="6">6 หลัก</option></select>
+      </label>
       <label>รูปแบบ
         <select id="lab"><option value="thai">ก ข ค ง จ</option><option value="abc">A B C D E</option></select>
       </label>
@@ -142,6 +145,7 @@ td.r,th.r{text-align:right}
       <div class="row" style="justify-content:space-between">
         <div><div class="score" id="score"></div><div class="hint" id="scoreSub"></div></div>
         <div class="row">
+          <label>รหัส <input id="stuId" style="width:110px" inputmode="numeric" placeholder="รหัสนักเรียน"></label>
           <input id="stuName" placeholder="ชื่อผู้สอบ (ไม่บังคับ)">
           <button class="btn" id="saveBtn">💾 บันทึก</button>
           <button class="btn sec" id="againBtn">สแกนแผ่นต่อไป</button>
@@ -173,7 +177,7 @@ td.r,th.r{text-align:right}
 /* ====================== สถานะ + จัดเก็บ ====================== */
 const LABELS={thai:['ก','ข','ค','ง','จ'],abc:['A','B','C','D','E']};
 const SKEY='omr-state-v1';
-const newSubject=name=>({name,n:20,k:4,labels:'thai',key:[]});
+const newSubject=name=>({name,n:20,k:4,labels:'thai',key:[],idLen:5});
 let db={subjects:[],active:0,history:[]};
 try{
   const o=JSON.parse(localStorage.getItem(SKEY)||'{}');
@@ -181,6 +185,7 @@ try{
   else if(o.key){db.subjects=[Object.assign(newSubject('วิชา 1'),{n:o.n,k:o.k,labels:o.labels,key:o.key})];db.history=o.history||[]}
 }catch(e){}
 if(!db.subjects.length)db.subjects=[newSubject('วิชา 1')];
+db.subjects.forEach(s=>{if(s.idLen==null)s.idLen=5});
 if(db.active>=db.subjects.length)db.active=0;
 // state = มุมมองของวิชาที่เลือกอยู่ (n,k,labels,key) + history รวมทุกวิชา
 const state={
@@ -188,6 +193,7 @@ const state={
   get k(){return db.subjects[db.active].k},set k(v){db.subjects[db.active].k=v},
   get labels(){return db.subjects[db.active].labels},set labels(v){db.subjects[db.active].labels=v},
   get key(){return db.subjects[db.active].key},set key(v){db.subjects[db.active].key=v},
+  get idLen(){return db.subjects[db.active].idLen},set idLen(v){db.subjects[db.active].idLen=v},
   get name(){return db.subjects[db.active].name},
   get history(){return db.history},set history(v){db.history=v}
 };
@@ -200,8 +206,15 @@ const lab=()=>LABELS[state.labels].slice(0,state.k);
 
 /* ====================== เลย์เอาต์กระดาษ (หน่วย มม. ใช้ร่วมทั้งพิมพ์และสแกน) ====================== */
 const SHEET={w:134,h:194,mk:8,markerC:[[4,4],[130,4],[130,190],[4,190]],dot:[24,4],margin:7};
+// ช่องรหัสนักเรียน: แถวละ 1 หลัก ตัวเลข 0-9 อยู่มุมขวาบนของหัวกระดาษ
+function idLayout(len){
+  const rows=[];
+  for(let d=0;d<len;d++){const l=[];for(let v=0;v<10;v++)l.push({x:76+v*5,y:13.5+d*4.4});rows.push(l)}
+  return rows;
+}
 function layout(n,k){
-  const R=25,y0=32,pitch=6,r=2.2,sp=5.2,bx=9;
+  const hasId=state.idLen>0;
+  const R=25,y0=hasId?42:32,pitch=hasId?5.5:6,r=2.2,sp=5.2,bx=9;
   const C=Math.ceil(n/R),colW=Math.min(40,SHEET.w/C),x0=(SHEET.w-C*colW)/2,bubbles=[];
   for(let q=0;q<n;q++){
     const col=Math.floor(q/R),row=q%R,cy=y0+(row+.5)*pitch,list=[];
@@ -211,15 +224,30 @@ function layout(n,k){
   return {bubbles,r,C,x0,colW,y0,R,bx,sp};
 }
 // กระดาษขนาด A5 (ครึ่ง A4) 148x208 มม. = กรอบ 134x194 + ขอบขาวรอบละ 7 มม.
-function sheetSVG({mm=false,marks=[]}={}){
+function sheetSVG({mm=false,marks=[],idMarks=''}={}){
   const L=layout(state.n,state.k),lb=lab(),{w,h,mk,margin:m}=SHEET,W=w+2*m,H=h+2*m;
   let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-m} ${-m} ${W} ${H}" ${mm?`width="${W}mm" height="${H}mm"`:'style="width:100%;height:auto;display:block"'} font-family="Tahoma,Sarabun,sans-serif">`;
   s+=`<rect x="${-m}" y="${-m}" width="${W}" height="${H}" fill="#fff"/>`;
   [[0,0],[w-mk,0],[w-mk,h-mk],[0,h-mk]].forEach(([x,y])=>s+=`<rect x="${x}" y="${y}" width="${mk}" height="${mk}" fill="#000"/>`);
   s+=`<circle cx="${SHEET.dot[0]}" cy="${SHEET.dot[1]}" r="2" fill="#000"/>`;
-  s+=`<text x="${w/2}" y="14" font-size="4.2" text-anchor="middle" font-weight="bold" textLength="${Math.min(110,(12+state.name.length)*2.7)}" lengthAdjust="spacing">กระดาษคำตอบ ${esc(state.name)}</text>`;
-  s+='<text x="8" y="23" font-size="3.2">ชื่อ-สกุล</text><line x1="22" y1="23.4" x2="92" y2="23.4" stroke="#000" stroke-width=".25"/>';
-  s+='<text x="97" y="23" font-size="3.2">เลขที่</text><line x1="107" y1="23.4" x2="126" y2="23.4" stroke="#000" stroke-width=".25"/>';
+  const title='กระดาษคำตอบ '+state.name,hasId=state.idLen>0;
+  if(hasId){
+    const est=title.length*2,tl=est>62?` textLength="62" lengthAdjust="spacingAndGlyphs"`:'';
+    s+=`<text x="8" y="14" font-size="4.2" font-weight="bold"${tl}>${esc(title)}</text>`;
+    s+='<text x="8" y="23" font-size="3.2">ชื่อ-สกุล</text><line x1="22" y1="23.4" x2="68" y2="23.4" stroke="#000" stroke-width=".25"/>';
+    s+='<text x="8" y="31" font-size="3.2">เลขที่</text><line x1="18" y1="31.4" x2="40" y2="31.4" stroke="#000" stroke-width=".25"/>';
+    s+='<text x="71" y="9.5" font-size="2.6" text-anchor="end" font-weight="bold">รหัสนักเรียน</text>';
+    for(let v=0;v<10;v++)s+=`<text x="${76+v*5}" y="10.2" font-size="2.4" text-anchor="middle">${v}</text>`;
+    idLayout(state.idLen).forEach((row,d)=>{
+      s+=`<text x="73" y="${row[0].y+1}" font-size="2.6" text-anchor="end">${d+1}</text>`;
+      row.forEach(b=>s+=`<circle cx="${b.x}" cy="${b.y}" r="2" fill="#fff" stroke="#000" stroke-width=".28"/>`);
+    });
+    (idMarks||'').split('').forEach((ch,d)=>{if(/\d/.test(ch)){const b=idLayout(state.idLen)[d][+ch];s+=`<circle cx="${b.x}" cy="${b.y}" r="1.8" fill="#222"/>`}});
+  }else{
+    s+=`<text x="${w/2}" y="14" font-size="4.2" text-anchor="middle" font-weight="bold" textLength="${Math.min(110,(12+state.name.length)*2.7)}" lengthAdjust="spacing">${esc(title)}</text>`;
+    s+='<text x="8" y="23" font-size="3.2">ชื่อ-สกุล</text><line x1="22" y1="23.4" x2="92" y2="23.4" stroke="#000" stroke-width=".25"/>';
+    s+='<text x="97" y="23" font-size="3.2">เลขที่</text><line x1="107" y1="23.4" x2="126" y2="23.4" stroke="#000" stroke-width=".25"/>';
+  }
   for(let c=0;c<L.C;c++)for(let j=0;j<state.k;j++)
     s+=`<text x="${L.x0+c*L.colW+L.bx+j*L.sp}" y="${L.y0-1.6}" font-size="2.8" text-anchor="middle">${lb[j]}</text>`;
   L.bubbles.forEach((row,q)=>{
@@ -323,6 +351,15 @@ function readSheet(g,w,h,H,n,k){
   return res;
 }
 
+// อ่านรหัสนักเรียน: ตัวเลข หรือ ? ถ้าว่าง/ระบายซ้อน
+function readId(g,w,h,H,len){
+  return idLayout(len).map(row=>{
+    const m=row.map(b=>sampleDisc(g,w,h,H,b.x,b.y,1.2)),base=median(m),dr=m.map(v=>base-v),thr=Math.max(12,base*.2);
+    const o=dr.map((v,i)=>i).sort((a,b)=>dr[b]-dr[a]);
+    return dr[o[0]]<thr||(dr[o[1]]>thr&&dr[o[1]]>.6*dr[o[0]])?'?':String(o[0]);
+  }).join('');
+}
+
 /* ====================== กล้อง + ตรวจจับสด ====================== */
 const video=$('video'),ov=$('ov'),octx=ov.getContext('2d');
 const small=document.createElement('canvas'),sctx=small.getContext('2d',{willReadFrequently:true});
@@ -391,8 +428,8 @@ function process(cv){
   const d=detectOn(cv,w,h);if(!d)return false;
   const full=d.pts.map(p=>[p[0]*d.sc,p[1]*d.sc]),o=solveOrientation(full,g,w,h);
   if(!o)return false;
-  cur={cv,H:o.H,ans:readSheet(g,w,h,o.H,state.n,state.k)};
-  paused=true;$('scanView').hidden=true;$('resView').hidden=false;$('stuName').value='';
+  cur={cv,H:o.H,ans:readSheet(g,w,h,o.H,state.n,state.k),id:state.idLen?readId(g,w,h,o.H,state.idLen):''};
+  paused=true;$('scanView').hidden=true;$('resView').hidden=false;$('stuName').value='';$('stuId').value=cur.id;$('stuId').parentElement.hidden=!state.idLen;
   renderResult();return true;
 }
 function grade(ans){
@@ -413,6 +450,9 @@ function renderResult(){
         x.beginPath();x.arc(px,py,r*1.25,0,7);x.stroke()}
     });
   });
+  if(state.idLen){const idc=cur.id,rows=idLayout(state.idLen);
+    rows.forEach((row,d)=>{const v=idc[d];if(v==null||v==='?')return;const b=row[+v],[px,py]=applyH(H,b.x,b.y),r=2*ppm(H,b.x,b.y);
+      x.strokeStyle='#2f8cff';x.lineWidth=Math.max(2,r*.4);x.beginPath();x.arc(px,py,r*1.25,0,7);x.stroke()})}
   const{right,total}=grade(ans);
   $('score').innerHTML=`${right} <small>/ ${total} คะแนน${total?` (${Math.round(right*100/total)}%)`:''}</small>`;
   const blank=ans.filter(a=>a===-1).length,multi=ans.filter(a=>a===-2).length;
@@ -432,13 +472,13 @@ function renderResult(){
 $('againBtn').onclick=()=>{cur=null;$('resView').hidden=true;$('scanView').hidden=false;paused=false;stable=0};
 $('saveBtn').onclick=()=>{
   if(!cur)return;const g=grade(cur.ans);
-  state.history.unshift({subject:state.name,name:$('stuName').value.trim()||'(ไม่ระบุชื่อ)',score:g.right,total:g.total,t:Date.now(),ans:[...cur.ans],labels:state.labels});
+  state.history.unshift({subject:state.name,sid:$('stuId').value.trim(),name:$('stuName').value.trim()||'(ไม่ระบุชื่อ)',score:g.right,total:g.total,t:Date.now(),ans:[...cur.ans],labels:state.labels});
   save();renderHist();$('againBtn').click();setStatus('บันทึกแล้ว — พร้อมสแกนแผ่นต่อไป','ok');
 };
 
 /* ====================== ตั้งเฉลย ====================== */
 function renderKey(){
-  $('n').value=state.n;$('k').value=state.k;$('lab').value=state.labels;
+  $('n').value=state.n;$('k').value=state.k;$('lab').value=state.labels;$('idl').value=state.idLen;
   const lb=lab(),box=$('keyGrid');box.innerHTML='';
   state.key.forEach((kv,q)=>{
     const d=document.createElement('div');d.className='q';
@@ -453,6 +493,7 @@ function renderKey(){
 }
 $('n').onchange=()=>{state.n=Math.max(1,Math.min(100,+$('n').value||20));fitKey();save();renderKey()};
 $('k').onchange=()=>{state.k=+$('k').value;fitKey();save();renderKey()};
+$('idl').onchange=()=>{state.idLen=+$('idl').value;save();renderKey()};
 $('lab').onchange=()=>{state.labels=$('lab').value;save();renderKey()};
 $('keyClear').onclick=()=>{state.key=state.key.map(()=>-1);save();renderKey()};
 $('quickBtn').onclick=()=>{
@@ -476,8 +517,8 @@ $('printBtn').onclick=()=>{
 function renderHist(){
   const h=state.history,box=$('histBox');
   if(!h.length){box.innerHTML='<p class="hint">ยังไม่มีผลที่บันทึก</p>';return}
-  box.innerHTML='<table><tr><th>วิชา</th><th>ชื่อ</th><th class="r">คะแนน</th><th class="r">%</th><th>เวลา</th><th></th></tr>'+
-    h.map((r,i)=>`<tr><td>${esc(r.subject||'-')}</td><td>${esc(r.name)}</td><td class="r">${r.score}/${r.total}</td><td class="r">${r.total?Math.round(r.score*100/r.total):'-'}</td><td>${new Date(r.t).toLocaleString('th-TH')}</td><td><button class="btn dng" data-i="${i}" style="padding:4px 10px">ลบ</button></td></tr>`).join('')+'</table>';
+  box.innerHTML='<table><tr><th>วิชา</th><th>รหัส</th><th>ชื่อ</th><th class="r">คะแนน</th><th class="r">%</th><th>เวลา</th><th></th></tr>'+
+    h.map((r,i)=>`<tr><td>${esc(r.subject||'-')}</td><td>${esc(r.sid||'-')}</td><td>${esc(r.name)}</td><td class="r">${r.score}/${r.total}</td><td class="r">${r.total?Math.round(r.score*100/r.total):'-'}</td><td>${new Date(r.t).toLocaleString('th-TH')}</td><td><button class="btn dng" data-i="${i}" style="padding:4px 10px">ลบ</button></td></tr>`).join('')+'</table>';
   box.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{state.history.splice(+b.dataset.i,1);save();renderHist()});
 }
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -485,8 +526,8 @@ $('histClear').onclick=()=>{if(confirm('ลบผลที่บันทึก�
 $('csvBtn').onclick=()=>{
   if(!state.history.length)return;
   const maxN=Math.max(...state.history.map(r=>r.ans.length));
-  const rows=[['วิชา','ชื่อ','คะแนน','เต็ม','เปอร์เซ็นต์','เวลา',...Array.from({length:maxN},(_,i)=>'ข้อ'+(i+1))]];
-  state.history.forEach(r=>rows.push([r.subject||'',r.name,r.score,r.total,r.total?Math.round(r.score*100/r.total):'',new Date(r.t).toLocaleString('th-TH'),
+  const rows=[['วิชา','รหัสนักเรียน','ชื่อ','คะแนน','เต็ม','เปอร์เซ็นต์','เวลา',...Array.from({length:maxN},(_,i)=>'ข้อ'+(i+1))]];
+  state.history.forEach(r=>rows.push([r.subject||'',r.sid||'',r.name,r.score,r.total,r.total?Math.round(r.score*100/r.total):'',new Date(r.t).toLocaleString('th-TH'),
     ...r.ans.map(a=>a>=0?LABELS[r.labels||'thai'][a]:a===-2?'*':'-')]));
   const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ผลสอบ.csv';a.click();
