@@ -103,10 +103,11 @@ td.r,th.r{text-align:right}
   <div class="card">
     <h2>เฉลย</h2>
     <div class="row" style="margin-bottom:10px">
-      <input id="quick" class="wide" placeholder="พิมพ์เฉลยรวดเดียว เช่น กขคงกข... หรือ ABCDAB...">
+      <input id="quick" class="wide" placeholder="พิมพ์เฉลยรวดเดียว เช่น กขคงกข... หรือ ABCDAB... หรือ 1234123...">
       <button class="btn sec" id="quickBtn">ใส่เฉลย</button>
       <button class="btn dng" id="keyClear">ล้างเฉลย</button>
     </div>
+    <p class="hint" id="quickMsg" style="margin:-4px 0 10px;min-height:1.2em"></p>
     <div id="keyGrid" class="qgrid"></div>
     <p class="hint">กดตัวเลือกเพื่อกำหนดเฉลย (กดซ้ำเพื่อยกเลิก) ข้อที่ไม่ได้ตั้งเฉลยจะไม่นับคะแนน · บันทึกในเครื่องอัตโนมัติ</p>
   </div>
@@ -547,12 +548,26 @@ $('k').onchange=()=>{state.k=+$('k').value;fitKey();save();renderKey()};
 $('idl').onchange=()=>{state.idLen=+$('idl').value;save();renderKey()};
 $('lab').onchange=()=>{state.labels=$('lab').value;save();renderKey()};
 $('keyClear').onclick=()=>{state.key=state.key.map(()=>-1);save();renderKey()};
+// อ่านเฉลยรวดเดียว: ตัวอักษร ก-จ / A-E เป็นตัวเลือก (ตัวเลขข้างหน้าถือเป็นเลขข้อ ข้ามไป)
+// ถ้าไม่มีตัวอักษรเลย จะอ่านตัวเลข 1-5 เป็นตัวเลือก (1=ก/A, 2=ข/B ...)
+function parseQuick(text,k){
+  const abc=LABELS.abc.map(x=>x.toLowerCase()),letters=[];let outOfRange=0;
+  for(const ch of text){
+    let idx=LABELS.thai.indexOf(ch);if(idx<0)idx=abc.indexOf(ch.toLowerCase());
+    if(idx<0)continue;if(idx>=k)outOfRange++;else letters.push(idx);
+  }
+  if(letters.length||outOfRange)return{list:letters,outOfRange};
+  const nums=[...text].filter(c=>/[1-9]/.test(c)).map(c=>+c-1);
+  return{list:nums.filter(i=>i<k),outOfRange:nums.filter(i=>i>=k).length};
+}
 $('quickBtn').onclick=()=>{
-  const set=[...LABELS.thai,...LABELS.abc.map(x=>x.toLowerCase())];let i=0;
-  for(const ch of $('quick').value){
-    const p=ch.toLowerCase();let idx=LABELS.thai.indexOf(ch);if(idx<0)idx=LABELS.abc.map(x=>x.toLowerCase()).indexOf(p);
-    if(idx<0||idx>=state.k)continue;if(i>=state.n)break;state.key[i++]=idx}
+  const{list,outOfRange}=parseQuick($('quick').value,state.k),m=$('quickMsg');
+  if(!list.length){m.style.color='var(--bad)';m.textContent=`ไม่พบเฉลยที่อ่านได้ — พิมพ์เช่น ${lab().join('')} หรือเลข 1-${state.k} (ตอนนี้ตั้งไว้ ${state.k} ตัวเลือก)`;return}
+  const used=Math.min(list.length,state.n);
+  for(let i=0;i<used;i++)state.key[i]=list[i];
   save();renderKey();
+  m.style.color='';
+  m.textContent=`ใส่เฉลยแล้ว ${used} ข้อ`+(list.length>state.n?` (เกินจำนวนข้อ ${list.length-state.n} ตัวถูกข้าม)`:list.length<state.n?` (ยังเหลือ ${state.n-list.length} ข้อที่ยังไม่ได้ตั้ง)`:'')+(outOfRange?` · ข้าม ${outOfRange} ตัวที่เกินจำนวนตัวเลือก`:'');
 };
 
 /* ====================== พิมพ์ ====================== */
