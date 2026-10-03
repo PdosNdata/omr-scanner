@@ -176,6 +176,7 @@ td.r,th.r{text-align:right}
       <div class="row"><input id="cEmail" type="email" class="wide" placeholder="อีเมล" autocomplete="username">
         <input id="cPw" type="password" class="wide" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
         <button class="btn" id="cIn">เข้าสู่ระบบ</button><button class="btn sec" id="cUp">สมัครสมาชิก</button></div>
+      <label style="display:inline-block;margin-top:6px"><input type="checkbox" id="cShowPw"> แสดงรหัสผ่านที่พิมพ์</label>
       <p class="hint">ไม่เข้าสู่ระบบก็ใช้ได้ ข้อมูลจะเก็บในเครื่องนี้อย่างเดียว · เข้าสู่ระบบแล้วเฉลยและผลสอบจะซิงก์ข้ามเครื่องและเป็นของครูคนนั้นเท่านั้น</p>
     </div>
     <div id="cUser" hidden>
@@ -670,7 +671,7 @@ create policy "own results" on public.results for all
 `;
 let sb=null,sbUser=null,syncing=false,pushTimer=null,lastUser=null;
 const cmsg=(t,bad)=>{const e=$('cMsg');e.textContent=t;e.style.color=bad?'var(--bad)':''};
-const thErr=m=>/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
+const thErr=m=>/Anonymous sign-ins|provide either an email/i.test(m)?'กรอกอีเมลและรหัสผ่านให้ครบก่อน':/rate limit|too many/i.test(m)?'ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่':/signups not allowed/i.test(m)?'ระบบปิดรับสมัครสมาชิกใหม่':/Invalid login/i.test(m)?'อีเมลหรือรหัสผ่านไม่ถูกต้อง':/not confirmed/i.test(m)?'ยังไม่ได้ยืนยันอีเมล — ตรวจกล่องจดหมาย':
   /already registered/i.test(m)?'อีเมลนี้สมัครแล้ว ลองเข้าสู่ระบบ':/at least/i.test(m)?'รหัสผ่านต้องมีอย่างน้อย 6 ตัว':/valid email|invalid format/i.test(m)?'รูปแบบอีเมลไม่ถูกต้อง':m;
 function sbCfg(){
   try{const o=JSON.parse(localStorage.getItem('omr-sb')||'null');if(o&&o.url&&o.anonKey)return o}catch(e){}
@@ -711,12 +712,26 @@ $('cCfgSave').onclick=()=>{
   try{localStorage.setItem('omr-sb',JSON.stringify({url,anonKey}))}catch(e){}
   cmsg('');sbInit();
 };
+// อ่านค่าฟอร์มล็อกอิน: ตรวจว่ากรอกครบก่อนส่ง (ช่องว่างจะทำให้ Supabase ตอบ "Anonymous sign-ins are disabled")
+function cCreds(){
+  const email=$('cEmail').value.trim(),password=$('cPw').value;
+  if(!email||!password){cmsg('กรอกอีเมลและรหัสผ่านให้ครบก่อน',true);return null}
+  return{email,password};
+}
 $('cIn').onclick=async()=>{
-  const{error}=await sb.auth.signInWithPassword({email:$('cEmail').value.trim(),password:$('cPw').value});
+  const c=cCreds();if(!c)return;
+  cmsg('กำลังเข้าสู่ระบบ…');
+  const{error}=await sb.auth.signInWithPassword(c);
   cmsg(error?thErr(error.message):'',!!error);
 };
+$('cPw').addEventListener('keydown',e=>{if(e.key==='Enter')$('cIn').click()});
+$('cEmail').addEventListener('keydown',e=>{if(e.key==='Enter')$('cPw').focus()});
+$('cShowPw').onchange=()=>{$('cPw').type=$('cShowPw').checked?'text':'password'};
 $('cUp').onclick=async()=>{
-  const{data,error}=await sb.auth.signUp({email:$('cEmail').value.trim(),password:$('cPw').value});
+  const c=cCreds();if(!c)return;
+  if(c.password.length<6)return cmsg('รหัสผ่านต้องมีอย่างน้อย 6 ตัว',true);
+  cmsg('กำลังสมัคร…');
+  const{data,error}=await sb.auth.signUp(c);
   if(error)return cmsg(thErr(error.message),true);
   if(!data.session)cmsg('สมัครแล้ว — ตรวจอีเมลเพื่อยืนยัน แล้วกลับมาเข้าสู่ระบบ');
 };
