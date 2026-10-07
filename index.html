@@ -96,6 +96,7 @@ td.r,th.r{text-align:right}
   <div class="row">
     <label>วิชา <select id="subj"></select></label>
     <button class="btn sec" id="subjAdd">＋ เพิ่มวิชา</button>
+    <button class="btn sec" id="subjCopy">📋 คัดลอกวิชา</button>
     <button class="btn sec" id="subjRen">✏️ เปลี่ยนชื่อ</button>
     <button class="btn dng" id="subjDel">ลบวิชา</button>
   </div>
@@ -1117,6 +1118,12 @@ $('subjAdd').onclick=()=>{
   const name=(prompt('ชื่อวิชา','วิชา '+(db.subjects.length+1))||'').trim();if(!name)return;
   const code=(prompt('รหัสวิชา (เว้นว่างได้) เช่น ว22104','')||'').trim();
   db.subjects.push(newSubject(name,code));fitKeyAll();switchSubj(db.subjects.length-1);
+};
+$('subjCopy').onclick=()=>{
+  const src=db.subjects[db.active],name=(prompt('คัดลอกวิชา "'+src.name+'" — ชื่อวิชาใหม่',src.name+' (สำเนา)')||'').trim();if(!name)return;
+  const code=(prompt('รหัสวิชาใหม่ (เว้นว่างได้ — รหัสไม่ควรซ้ำกับวิชาอื่น เพราะใช้เลือกวิชาตอนสแกน) เช่น ว22104','')||'').trim();
+  const c=Object.assign(JSON.parse(JSON.stringify(src)),{id:uuid(),name,code,upd:Date.now()});delete c.sig;delete c.pushed;
+  db.subjects.push(c);fitKeyAll();switchSubj(db.subjects.length-1);
 };
 $('subjRen').onclick=()=>{
   const name=(prompt('เปลี่ยนชื่อวิชา',state.name)||'').trim();if(!name)return;
